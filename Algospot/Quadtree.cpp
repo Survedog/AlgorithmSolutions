@@ -1,8 +1,8 @@
+// Problem: https://algospot.com/judge/problem/read/QUADTREE
+
 #include <iostream>
 #include <string>
 #include <cassert>
-
-// Problem: https://algospot.com/judge/problem/read/QUADTREE
 
 using namespace std;
 

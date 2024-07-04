@@ -1,3 +1,5 @@
+// Problem: https://www.hackerrank.com/challenges/attribute-parser/problem?isFullScreen=true
+
 #include <cstdio>
 #include <string>
 #include <iostream>
