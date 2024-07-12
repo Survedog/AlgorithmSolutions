@@ -2,44 +2,34 @@
 #include <vector>
 #include <memory.h>
 
+#define NEGINF -2147483649LL
+
 using namespace std;
 
 int n, m;
 vector<int> A, B;
-int memo[200];
+int memo[101][101];
 
-int GetLISLength(const vector<int>& series, int start)
+int GetJLISLength(int startA, int startB)
 {
-	if (start == series.size() - 1)
-	{
-		return 1;
-	}
-
-	if (start == -1)
-	{
-		int ret = 1;
-		for (int i = 0; i < series.size(); i++)
-		{
-			ret = max(ret, GetLISLength(series, i));
-		}
+	int& ret = memo[startA + 1][startB + 1];
+	if (ret != -1)
 		return ret;
-	}
-	else
-	{
-		int& ret = memo[start];
-		if (ret != -1)
-		{
-			return ret;
-		}
 
-		ret = 1;
-		for (int i = start + 1; i < series.size(); i++)
-		{
-			if (series[start] < series[i])
-				ret = max(ret, GetLISLength(series, i) + 1);
-		}
-		return ret;
-	}
+	ret = 0;
+	const long long currentANum = startA >= 0 ? A[startA] : NEGINF;
+	const long long currentBNum = startB >= 0 ? B[startB] : NEGINF;
+	const long long maxElement = max(currentANum, currentBNum);
+
+	for (int nextA = startA + 1; nextA < n; nextA++)
+		if (maxElement < A[nextA])
+			ret = max(ret, GetJLISLength(nextA, startB) + 1);
+
+	for (int nextB = startB + 1; nextB < m; nextB++)
+		if (maxElement < B[nextB])
+			ret = max(ret, GetJLISLength(startA, nextB) + 1);
+
+	return ret;
 }
 
 void Init()
@@ -64,7 +54,9 @@ void Init()
 			cin >> element;
 			B.push_back(element);
 		}
+
 	}
+	memset(memo, -1, sizeof(memo));
 }
 
 int main()
@@ -74,20 +66,7 @@ int main()
 	while (C--)
 	{
 		Init();
-
-		int result = 0;
-		vector<int> joined(A);
-		joined.insert(joined.end(), B.begin(), B.end());
-		memset(memo, -1, sizeof(memo));
-		result = GetLISLength(joined, -1);
-
-		joined = B;
-		joined.insert(joined.end(), A.begin(), A.end());
-		memset(memo, -1, sizeof(memo));
-		result = max(result, GetLISLength(joined, -1));
-
-		cout << result << "\n";
+		cout << GetJLISLength(-1, -1) << "\n";
 	}
-
 	return 0;
 }
