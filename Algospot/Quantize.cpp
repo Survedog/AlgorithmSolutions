@@ -1,3 +1,5 @@
+// Problem: https://algospot.com/judge/problem/read/QUANTIZE
+
 #include <iostream>
 #include <algorithm>
 #include <memory.h>
