@@ -11,6 +11,7 @@
 
 using namespace std;
 
+const int NEGINF = -987654321;
 int n, board[50], memo[50][50];
 
 int GetMaxScoreDiff(int start, int end)
@@ -21,7 +22,7 @@ int GetMaxScoreDiff(int start, int end)
 		return 0;
 
 	int& ret = memo[start][end];
-	if (ret != -1) return ret;
+	if (ret != NEGINF) return ret;
 
 	ret = board[start] - GetMaxScoreDiff(start + 1, end);
 	ret = max(ret, board[end] - GetMaxScoreDiff(start, end - 1));
@@ -47,7 +48,7 @@ int main()
 		for (int i = 0; i < n; ++i)
 			cin >> board[i];
 
-		memset(memo, -1, sizeof(memo));
+		fill_n(&memo[0][0], 50 * 50, NEGINF);
 		cout << GetMaxScoreDiff(0, n - 1) << "\n";
 	}
 
