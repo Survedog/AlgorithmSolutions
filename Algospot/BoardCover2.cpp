@@ -4,21 +4,20 @@
 * - 남은 빈 칸의 크기를 블록의 크기로 나눈 값을 구하는 휴리스틱 함수를 구현해, 현재 상태에서 더 놓을 수 있는 블록의 개수의 상한으로 사용하여 가지치기함.
 * - 보드의 남은 칸이 DP_THRESHOLD개 만큼 남았다면 해당 위치에서부터 블록을 놓을 수 있는 최대 개수는 동적 계획법을 사용해 구함.
 * 그러나 여전히 시간 초과가 발생하였다.
+* 
+* 블록을 배치/제거하는 과정을 Set이라는 별도의 함수로 분리시키고, 교재의 search 함수를 그대로 가져와 사용해봤으나 수행 시간이 전혀 개선되지 않음.
+* set 함수를 최적화할 필요가 있어보임.
 */
 
 #include <iostream>
 #include <algorithm>
 #include <string>
 #include <vector>
-#include <map>
 
 using namespace std;
 
-const int DP_THRESHOLD = 10;
-int H, W, R, C, blockSize, maxBlocks, spaceLeft[10][10];
-map<int, int> memo[DP_THRESHOLD];
-vector<pair<int, int>> blockRelativePos[4];
-vector<int> blockStates;
+int H, W, R, C, blockSize, maxBlocks, spaceLeft[10][10], board[10][10];
+vector<vector<pair<int, int>>> rotations;
 
 vector<string> RotateBlock(vector<string>& inBlock)
 {
@@ -29,22 +28,16 @@ vector<string> RotateBlock(vector<string>& inBlock)
 	return ret;
 }
 
-void PreProcess(vector<vector<int>>& inBoard)
+void PreProcess()
 {
-	blockSize = 0;
 	vector<string> block(R);
 	for (int i = 0; i < R; ++i)
-	{
 		cin >> block[i];
-		for (int j = 0; j < C; ++j)
-			if (block[i][j] == '#')
-				blockSize++;
-	}
 
+	rotations.clear();
+	rotations.resize(4);
 	for (int rotate = 0; rotate < 4; ++rotate)
 	{
-		blockRelativePos[rotate].clear();
-
 		int pivotY = -1, pivotX = -1;
 		for (int y = 0; y < block.size(); ++y)
 			for (int x = 0; x < block[0].size(); ++x)
@@ -55,66 +48,50 @@ void PreProcess(vector<vector<int>>& inBoard)
 						pivotY = y;
 						pivotX = x;
 					}
-					blockRelativePos[rotate].push_back(make_pair(y - pivotY, x - pivotX));
+					rotations[rotate].push_back(make_pair(y - pivotY, x - pivotX));
 				}
 		block = RotateBlock(block);
 	}
-
-	blockStates.clear();
-	for (int square = 0; square < DP_THRESHOLD; ++square)
-	{
-		for (int rotate = 0; rotate < 4; ++rotate)
-		{
-			int blockState = 0;
-			for (pair<int, int> blockOffset : blockRelativePos[rotate])
-			{
-				int blockedSquare = square + blockOffset.first * H + blockOffset.second;
-				blockState |= (1 << blockedSquare);
-			}
-
-			blockStates.push_back(blockState);
-		}
-	}
+	sort(rotations.begin(), rotations.end());
+	rotations.erase(unique(rotations.begin(), rotations.end()), rotations.end());
+	blockSize = rotations[0].size();
 
 	int spaceCount = 0;
-	for (int i = 0; i < inBoard.size(); ++i)
-		for (int j = 0; j < inBoard[0].size(); ++j)
+	for (int i = 0; i < H; ++i)
+		for (int j = 0; j < W; ++j)
 		{
 			spaceLeft[i][j] = -spaceCount;
-			if (inBoard[i][j] == 0)
+			if (board[i][j] == 0)
 				spaceCount++;
 		}
 
-	for (int i = 0; i < inBoard.size(); ++i)
-		for (int j = 0; j < inBoard[0].size(); ++j)
+	for (int i = 0; i < H; ++i)
+		for (int j = 0; j < W; ++j)
 			spaceLeft[i][j] += spaceCount;
 }
 
-int DP(int boardState, int square)
+bool Set(int x, int y, vector<pair<int, int>>& blockRotations, int value)
 {
-	if (square == DP_THRESHOLD || boardState == (1 << DP_THRESHOLD) - 1) return 0;
-
-	auto findIter = memo[square].find(boardState);
-	if (findIter != memo[square].end()) return findIter->second;
-
-	int& ret = memo[square][boardState] = 0;
-	for (int rotate = 0; rotate < 4; ++rotate)
+	bool placeable = true;
+	for (pair<int, int> blockOffset : blockRotations)
 	{
-		int blockState = 0;
-		for (pair<int, int> blockOffset : blockRelativePos[rotate])
+		int blockY = y + blockOffset.first;
+		int blockX = x + blockOffset.second;
+
+		if (blockX >= W || blockY >= H || blockX < 0 || blockY < 0)
 		{
-			int blockedSquare = square + blockOffset.first * H + blockOffset.second;
-			blockState |= (1 << blockedSquare);
+			placeable = false;
+			continue;
 		}
 
-		if ((boardState | blockState) == 0)
-			ret = max(ret, DP(boardState | blockState, square + 1) + 1);
+		if (board[blockY][blockX] != 0)
+			placeable = false;
+		board[blockY][blockX] += value;
 	}
-	ret = max(ret, DP(boardState, square + 1));
-	return ret;
+	return placeable;
 }
 
-void GetMaxBlocks(vector<vector<int>>& inBoard, int x, int y, int placed)
+void GetMaxBlocks(int x, int y, int placed)
 {
 	if (x >= W)
 	{
@@ -122,70 +99,56 @@ void GetMaxBlocks(vector<vector<int>>& inBoard, int x, int y, int placed)
 		y++;
 	}
 	if (y >= H)
-		return;
-	if (maxBlocks > placed + spaceLeft[y][x] / blockSize)
-		return;
-
-	if ((H - y) * W - x <= DP_THRESHOLD)
 	{
-		int square = 0, nx = x, ny = y, boardState = 0;
-		while (ny < H)
+		maxBlocks = max(maxBlocks, placed);
+		return;
+	}
+	if (maxBlocks >= placed + spaceLeft[y][x] / blockSize)
+		return;
+
+	if (board[y][x] == 0)
+	{
+		for (vector<pair<int, int>> rotation : rotations)
 		{
-			if (inBoard[ny][nx] == 1)
-				boardState |= (1 << square);
-
-			nx++;
-			if (nx >= W)
-			{
-				nx = 0;
-				ny++;
-			}
-			square++;
+			if (Set(x, y, rotation, 1))
+				GetMaxBlocks(x + 1, y, placed + 1);
+			Set(x, y, rotation, -1);
 		}
+	}
+	GetMaxBlocks(x + 1, y, placed);
+}
 
-		maxBlocks = max(maxBlocks, placed + DP(boardState, 0));
+void search(int placed)
+{
+	int y = -1, x = -1;
+	for (int i = 0; i < H; ++i)
+	{
+		for (int j = 0; j < W; ++j)
+			if (board[i][j] == 0)
+			{
+				y = i;
+				x = j;
+				break;
+			}
+		if (y != -1) break;
+	}
+
+	if (y == -1)
+	{
+		maxBlocks = max(maxBlocks, placed);
 		return;
 	}
 
-	if (inBoard[y][x] == 0)
+	for (vector<pair<int, int>> rotation : rotations)
 	{
-		for (int rotate = 0; rotate < 4; ++rotate)
-		{
-			bool placeable = true;
-			for (pair<int, int> blockOffset : blockRelativePos[rotate])
-			{
-				int blockY = y + blockOffset.first;
-				int blockX = x + blockOffset.second;
-
-				if (blockX >= W || blockY >= H || blockX < 0 || blockY < 0)
-				{
-					placeable = false;
-					continue;
-				}
-				if (inBoard[blockY][blockX] != 0)
-					placeable = false;
-
-				inBoard[blockY][blockX] += 1;
-			}
-
-			if (placeable)
-			{
-				maxBlocks = max(maxBlocks, placed + 1);
-				GetMaxBlocks(inBoard, x + 1, y, placed + 1);
-			}
-
-			for (pair<int, int> blockOffset : blockRelativePos[rotate])
-			{
-				int blockY = y + blockOffset.first;
-				int blockX = x + blockOffset.second;
-
-				if (blockX < W && blockY < H && blockX >= 0 && blockY >= 0)
-					inBoard[blockY][blockX] -= 1;
-			}
-		}
+		if (Set(x, y, rotation, 1))
+			search(placed + 1);
+		Set(x, y, rotation, -1);
 	}
-	GetMaxBlocks(inBoard, x + 1, y, placed);
-	return;
+
+	board[y][x] = 1;
+	search(placed);
+	board[y][x] = 0;
 }
 
 int main()
@@ -198,9 +161,9 @@ int main()
 	while (T--)
 	{
 		maxBlocks = 0;
+		memset(board, 0, sizeof(board));
 
 		cin >> H >> W >> R >> C;
-		vector<vector<int>> board(H, vector<int>(W, 0));
 		for (int i = 0; i < H; ++i)
 		{
 			char str[11];
@@ -209,8 +172,11 @@ int main()
 				board[i][j] = (str[j] == '#' ? 1 : 0);
 		}
 
-		PreProcess(board);
-		GetMaxBlocks(board, 0, 0, 0);
+		PreProcess();
+		GetMaxBlocks(0, 0, 0);
+		//search(0);
 		cout << maxBlocks << "\n";
 	}
+
+	return 0;
 }
