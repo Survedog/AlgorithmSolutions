@@ -1,5 +1,11 @@
 /*
 * Problem: https://algospot.com/judge/problem/read/GRADUATION
+* 시도1) semester번째 학기 전까지 taken 과목들을 미리 수강했고, 앞으로 semesterLeft만큼의 학기를 더 신청할 수 있을 때 수강할 수 있는 최대 과목 수를 구하는 함수를 만들었다.
+* 초기 semesterLeft를 0부터 10까지 올리며 이 함수를 실행했고, 만약 수강 가능한 최대 과목 수가 K보다 크거나 같게 되면 그 semesterLeft를 답으로 출력하도록 했다.
+* 이때 과목들의 집합은 모두 int형 변수에 비트마스크로 나타낸 덕분에 taken에 선행 과목이 모두 포함되는지 확인하는 과정을 상수 시간에 수행할 수 있었다.
+* 또한 현재 학기에 수강할 수 있는 과목들의 부분집합을 구할 때는 교재 p.585에서 소개한 비트마스크의 부분집합 순회 방법을 사용했다.
+* 예제는 맞았으나 실제 채점 시 오답이 발생했다.
+* 
 */
 #include <iostream>
 #include <memory.h>
@@ -12,14 +18,12 @@ int memo[10][1 << 20], prereqSet[1 << 20];
 
 inline int GetSubjectCount(int subjects)
 {
-	return __popcnt(subjects);
+	return __builtin_popcount(subjects);
 }
 
 inline int GetLSBSubject(int subjects)
 {
-	unsigned long lsb;
-	_BitScanForward(&lsb, subjects);
-	return lsb;
+	return __builtin_ctz(subjects);
 }
 
 int GetPrerequisiteSet(int subjects)
@@ -35,16 +39,16 @@ int GetPrerequisiteSet(int subjects)
 
 int GetMaxSubjects(int semester, int taken, int semesterLeft)
 {
-	if (taken == (1 << 20) - 1 || semesterLeft == 0 || semester == 10) return 0;
+	if (taken == (1 << N) - 1 || semesterLeft == 0 || semester == M) return 0;
 
 	int& ret = memo[semester][taken];
 	if (ret != -1) return ret;
 
-	for (int subset = open[semester]; subset; subset = ((subset - 1) & open[semester]))
+	int available = open[semester] & (~taken);
+	for (int subset = available; subset; subset = ((subset - 1) & available))
 	{
-		int newSubjects = (~taken) & subset;
-		int newSubjectCount = GetSubjectCount(newSubjects);
-		if (newSubjectCount > 0 && newSubjectCount <= L && ((prereqSet[newSubjects] & (~taken)) == 0))
+		int newSubjectCount = GetSubjectCount(subset);
+		if (newSubjectCount > 0 && newSubjectCount <= L && ((prereqSet[subset] & (~taken)) == 0))
 			ret = max(ret, GetMaxSubjects(semester + 1, taken | subset, semesterLeft - 1) + newSubjectCount);
 	}
 	ret = max(ret, GetMaxSubjects(semester + 1, taken, semesterLeft));
@@ -91,11 +95,11 @@ int main()
 		}
 
 		memset(prereqSet, -1, sizeof(prereqSet));
-		for (int subjectSet = (1 << 20) - 1; subjectSet >= 0; subjectSet--)
+		for (int subjectSet = (1 << N) - 1; subjectSet >= 0; subjectSet--)
 			GetPrerequisiteSet(subjectSet);
 
 		bool isPossible = false;
-		for (int semesterLeft = 1; semesterLeft <= M; ++semesterLeft)
+		for (int semesterLeft = 0; semesterLeft <= M; ++semesterLeft)
 		{
 			memset(memo, -1, sizeof(memo));
 
