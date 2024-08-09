@@ -3,6 +3,9 @@
 * 시도1) KMP 알고리즘을 응용해 한 문자열의 접두사이면서 다른 문자열의 접미사가 되는 가장 긴 문자열의 길이를 구하는 함수를 만들었다.
 * 이를 이용해 각 인접한 상태에 대해 겹치는 문자열의 최대 길이를 구하고, 그 값을 통해 다이얼을 얼마나 돌려야 하는지 계산하는 로직을 구현했다. (x만큼 겹칠경우 시계방향으론 'x', 반시계방향으론 '슬롯 수 - x' 만큼 돌리면 됨)
 * 예제는 맞았으나 실제 채점땐 오답이 발생했고, 오답이 왜 발생하는지 알아내지 못했다.
+* 
+* 책해설) 한 상태를 자신과 이어붙인 문자열에서 다음 상태를 찾는다. 발견된 시작 위치가 곧 시계방향으로 돌려야 하는 횟수가 된다.
+* 반시계 방향으로 돌려야 하는 경우, 순서를 반대로 하여 다음 상태 문자열을 두번 이어붙인 것에서 이전 상태를 찾으면 된다.
 */
 #include <iostream>
 #include <string>
@@ -39,7 +42,7 @@ void GetPartialMatch(const string& str, vector<int>& outPI)
 	}
 }
 
-int GetMaxPreSufOverlap(const string& a, const string& b)
+int FindFirstMatch(const string& a, const string& b)
 {
 	int n = a.size(), m = b.size();
 	vector<int> pi;
@@ -48,11 +51,11 @@ int GetMaxPreSufOverlap(const string& a, const string& b)
 	int begin = 0, match = 0;
 	while (begin < n)
 	{
-		if (match < m && a[begin + match] == b[match])
+		if (a[begin + match] == b[match])
 		{
 			match++;
-			if (begin + match == n)
-				return match;
+			if (match == m)
+				return begin;
 		}
 		else
 		{
@@ -74,11 +77,10 @@ int GetMinRotation()
 	bool turn = true;
 	for (int i = 0; i < N; ++i)
 	{
-		int overlap = GetMaxPreSufOverlap(state[i], state[i + 1]);
 		if (turn)
-			ret += overlap;
+			ret += FindFirstMatch(state[i + 1] + state[i + 1], state[i]);
 		else
-			ret += slotCount - overlap;
+			ret += FindFirstMatch(state[i] + state[i], state[i + 1]);
 		turn = !turn;
 	}
 	return ret;
