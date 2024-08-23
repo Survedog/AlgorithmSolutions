@@ -43,8 +43,8 @@
 * 교재의 실제 구현에선 SCC를 직접 압축하지 않았으며, TarjanSCC로 지정된 scc 순서는 위상 정렬의 역순이라는 사실을 이용해 노드들을 순서대로 조회하며 해결했다.
 * 이 소스코드는 교재의 구현과 거의 비슷하게 작성했지만, 교재에서 만든 함의 그래프는 한 팀의 두 회의 중 하나만 개최할 수 있다는 제약을 갖고 있지 않아, 두 회의가 모두 가능하다면 그 중 하나만 답으로 내놓을 필요가 있었다.
 * 이를 두가지 방식으로 구현해보았다.
-* 1) 함의 그래프에 간선으로 (A_i) -> (!A_i+1), (A_i+1) -> (!A_i)를 추가한다. (현재 커밋)
-* 2) 팀이 두 회의 중 하나를 수행하면 다른 하나는 답으로 내놓지 않음. (다음 커밋)
+* 1) 함의 그래프에 간선으로 (A_i) -> (!A_i+1), (A_i+1) -> (!A_i)를 추가한다. (이전 커밋)
+* 2) 팀이 두 회의 중 하나를 수행하면 다른 하나는 답으로 내놓지 않음. (현재 커밋)
 *
 * 발견한 것) vector.resize(n, x)를 수행하면 벡터에선 오직 새로운 원소에 대해서만 x를 할당한다.
 * 즉 아직 남아있는 기존 원소는 동일한 값을 가지기 때문에, 벡터를 재사용하기 위해 초기화하는 데엔 적합하지 않다.
@@ -78,9 +78,7 @@ void MakeGraph(const vector<pair<int, int>>& meetings)
 	for (int daily = 0; daily < meetings.size(); daily += 2)
 	{
 		int weekly = daily + 1;
-		adjacent[GetPositiveNode(daily)].push_back(GetNegativeNode(weekly));
 		adjacent[GetNegativeNode(daily)].push_back(GetPositiveNode(weekly));
-		adjacent[GetPositiveNode(weekly)].push_back(GetNegativeNode(daily));
 		adjacent[GetNegativeNode(weekly)].push_back(GetPositiveNode(daily));
 	}
 
@@ -190,12 +188,19 @@ int main()
 		else
 		{
 			cout << "POSSIBLE" << "\n";
+			bool isTeamOver = false;
 			for (int i = 0; i < answer.size(); ++i)
 			{
-				if (answer[i])
-					cout << meetings[i].first << " " << meetings[i].second << "\n";
+				if (isTeamOver)
+				{
+					isTeamOver = false;
+					continue;
+				}
+				if (answer[i]) cout << meetings[i].first << " " << meetings[i].second << "\n";
+				isTeamOver = i % 2 == 0 && answer[i];
 			}
 		}
 	}
+
 	return 0;
 }
