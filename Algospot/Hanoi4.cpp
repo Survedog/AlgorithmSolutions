@@ -12,9 +12,9 @@
 * 인접한 상태를 알아내는 것이 문제인데, 비트 AND연산을 통해 각 원반의 위치를 알아내면 O(N)시간에 인접한 상태를 구할 수 있다.
 * 
 * 원반들이 배치될 수 있는 상태의 총 개수는 4^12 = 약 1600만으로, BFS 시 시간 초과가 발생할 우려가 있으나, 시도해볼 가치가 있다.
-* 시도1) 너비우선 탐색을 그대로 적용했음. 시간 초과가 발생함. (현재 커밋)
+* 시도1) 너비우선 탐색을 그대로 적용했음. 시간 초과가 발생함. (이전 커밋)
 * 시도2) 양방향 탐색을 실시함. 오답이 발생했는데, start와 finish가 같은 경우를 예외처리하지 않은 것과 디버그 시 가독성을 위해 답에 Answer 문구를 추가한 것을 지우지 않은게 문제였다.
-* 이것들을 해결하니 무사히 정답을 맞출 수 있었다. (다음 커밋)
+* 이것들을 해결하니 무사히 정답을 맞출 수 있었다. (현재 커밋)
 * 
 * 배운 점)
 * 1. 처음엔 State 구조체에 상태를 표현하는 정수 값을 넣어 썼으나 int형을 그대로 쓰는 것에 비해 코드만 더 길어지고 복잡해짐.
@@ -26,9 +26,12 @@
 #include <algorithm>
 #include <memory.h>
 #include <cmath>
-#include <climits>
 
 using namespace std;
+
+const int MAX_DISK = 12;
+int start, finish, N, dist[1 << 24];
+queue<int> q;
 
 int Vec2Int(const vector<int>& v)
 {
@@ -38,51 +41,47 @@ int Vec2Int(const vector<int>& v)
 	return ret;
 }
 
-struct State
+inline int Sign(int x)
 {
-	unsigned int location;
+	if (x == 0) return 0;
+	return x > 0 ? 1 : -1;
+}
 
-	State() : location(0) {}
-	State(int location) : location(location) {}
+inline int Incr(int x)
+{
+	return x >= 0 ? x + 1 : x - 1;
+}
 
-	State MoveDisk(int disk, int toPillar)
-	{
-		State newState(location);
-		newState.location -= newState.location & (3 << (2 * disk));
-		newState.location |= toPillar << (2 * disk);
-		return newState;
-	}
-};
+int MoveDisk(int state, int disk, int toPillar)
+{
+	state &= ~(3 << (2 * disk));
+	state |= toPillar << (2 * disk);
+	return state;
+}
 
-State start, finish;
-queue<pair<State, int>> q;
-int N;
-bool discovered[1 << 24];
-
-void GetEachTop(const State& state, vector<int>& outTops)
+void GetEachTop(int state, vector<int>& outTops)
 {
 	outTops.clear();
-	outTops.resize(4, 13);
-	for (int disk = 0; disk < N; ++disk)
+	outTops.resize(4, MAX_DISK);
+	for (int disk = N - 1; disk >= 0; --disk)
 	{
-		int pillar = 3 & (state.location >> (2 * disk));
-		outTops[pillar] = min(outTops[pillar], disk);
+		int pillar = 3 & (state >> (2 * disk));
+		outTops[pillar] = disk;
 	}
 }
 
 int BFS()
 {
+	if (start == finish) return 0;
+
 	while (!q.empty()) q.pop();
-	q.emplace(start, 0);
-	discovered[start.location] = true;
+	q.emplace(start); dist[start] = 1;
+	q.emplace(finish); dist[finish] = -1;
 
 	while (!q.empty())
 	{
-		State here = q.front().first;
-		int dist = q.front().second;
+		int here = q.front();
 		q.pop();
-
-		if (here.location == finish.location) return dist;
 
 		vector<int> tops;
 		GetEachTop(here, tops);
@@ -91,12 +90,15 @@ int BFS()
 			for (int j = 0; j < 4; ++j)
 				if (i != j && tops[i] < tops[j])
 				{
-					State next = here.MoveDisk(tops[i], j);
-					if (!discovered[next.location])
+					int next = MoveDisk(here, tops[i], j);
+					if (dist[next] == 0)
 					{
-						discovered[next.location] = true;
-						q.emplace(next, dist + 1);
+						int nextDist = Incr(dist[here]);
+						dist[next] = nextDist;
+						q.emplace(next);
 					}
+					else if (Sign(dist[here]) != Sign(dist[next]))
+						return abs(dist[here]) + abs(dist[next]) - 1;
 				}
 	}
 	return -1;
@@ -113,8 +115,9 @@ int main()
 	{
 		cin >> N;
 
-		memset(discovered, false, sizeof(discovered));
+		memset(dist, 0, sizeof(dist));
 
+		vector<int> finishVec(N, 3);
 		vector<int> startVec(N, -1);
 		for (int pillar = 0; pillar < 4; ++pillar)
 		{
@@ -128,10 +131,8 @@ int main()
 			}
 		}
 
-		vector<int> finishVec(N, 3);
-
-		start = State(Vec2Int(startVec));
-		finish = State(Vec2Int(finishVec));
+		finish = Vec2Int(finishVec);
+		start = Vec2Int(startVec);
 		cout << BFS() << "\n";
 	}
 	return 0;
