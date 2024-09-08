@@ -1,6 +1,13 @@
 /*
 * Problem: https://algospot.com/judge/problem/read/TRAPCARD
 * 분류: 이분 매칭
+* 증명을 하는 과정에서 해결 알고리즘이 만들어지는 구성적 증명을 사용함.
+* 
+* 책 해설) 그래프에서 어떠한 것도 서로 인접하지 않도록 노드들을 최대한 선택한 것을 최대 분리 집합이라고 한다. 이것은 지도를 그래프로 나타냈을 때 함정을 최대한 설치하기 위해 선택해야 하는 칸들의 집합과 같다.
+* 기지의 칸들을 상하좌우로 인접한 칸끼리 서로 다른 집합에 속하도록 두 집합으로 분리시킨 뒤 ((x + y) % 2 값을 이용), 각 빈 칸들을 노드로 만들고 지도 상에서 인접한 노드들을 서로 간선으로 잇는다.
+* 이제 전체 노드들을 함정을 설치할 장소로 선택한 뒤 두 집합 간의 최대 이분 매칭을 구하여, 이분 매칭에 참여하는 각 노드 쌍에서 특정한 방법으로 하나의 노드씩만 선택에서 제외하면 최대 분리 집합을 얻을 수 있다.
+* 이 방법의 정당성을 증명하는 과정에서 문제를 해결하기 위해 필요한 알고리즘을 얻을 수 있다.
+* (해당 증명은 교재의 1033페이지를 참고)
 */
 #include <iostream>
 #include <vector>
@@ -24,15 +31,18 @@ inline int GetTeam(int y, int x) { return (x + y) % 2; }
 
 int AssignID(int y, int x)
 {
-	if (GetTeam(y, x) == 0)
+	if (blockID[y][x] == -1)
 	{
-		blockID[y][x] = n++;
-		aID2Pos[blockID[y][x]] = make_pair(y, x);
-	}
-	else
-	{
-		blockID[y][x] = m++;
-		bID2Pos[blockID[y][x]] = make_pair(y, x);
+		if (GetTeam(y, x) == 0)
+		{
+			blockID[y][x] = n++;
+			aID2Pos[blockID[y][x]] = make_pair(y, x);
+		}
+		else
+		{
+			blockID[y][x] = m++;
+			bID2Pos[blockID[y][x]] = make_pair(y, x);
+		}
 	}
 	return blockID[y][x];
 }
@@ -86,20 +96,19 @@ void MakeGraph()
 		for (int x = 0; x < W; ++x)
 		{
 			if (board[y][x] != '.') continue;
-
-			if (blockID[y][x] == -1) blockID[y][x] = AssignID(y, x);
-			int id = blockID[y][x];
+			int id = AssignID(y, x);
 
 			for (int dir = 0; dir < 4; ++dir)
 			{
 				int cy = y + dy[dir];
 				int cx = x + dx[dir];
 
-				if (blockID[cy][cx] == -1) blockID[cy][cx] = AssignID(cy, cx);
-				int cID = blockID[cy][cx];
-
 				if (IsInRange(cy, cx) && board[cy][cx] == '.')
-					adjacent[id][cID] = adjacent[cID][id] = true;
+				{
+					int cID = AssignID(cy, cx);
+					if (GetTeam(y, x) == 0) adjacent[id][cID] = true;
+					else adjacent[cID][id] = true;
+				}
 			}
 		}
 }
@@ -119,25 +128,38 @@ int GetAnswer()
 			ret++;
 		}
 
-	for (int a = 0; a < n; ++a)
-		for (int b = 0; b < m; ++b)
-		{
-			if (aMatch[a] != b && adjacent[a][b])
+	while (true)
+	{
+		bool isChanged = false;
+		for (int a = 0; a < n; ++a)
+			for (int b = 0; b < m; ++b)
 			{
-				aSelected[a] = false;
-				bSelected[b] = true;
+				if (aSelected[a] && bSelected[b] && adjacent[a][b])
+				{
+					aSelected[a] = false;
+					bSelected[aMatch[a]] = true;
+					isChanged = true;
+				}
 			}
 
-			while ()
-			{
-
-			}
-		}
+		if (!isChanged)
+			break;
+	}
 
 	for (int a = 0; a < n; ++a)
 		if (aSelected[a])
 		{
+			int y = aID2Pos[a].first;
+			int x = aID2Pos[a].second;
+			board[y][x] = '^';
+		}
 
+	for (int b = 0; b < m; ++b)
+		if (bSelected[b])
+		{
+			int y = bID2Pos[b].first;
+			int x = bID2Pos[b].second;
+			board[y][x] = '^';
 		}
 
 	return ret;
@@ -157,7 +179,9 @@ int main()
 		for (int i = 0; i < H; ++i)
 			cin >> board[i];
 
-		GetAnswer();
+		cout << GetAnswer() << "\n";
+		for (int i = 0; i < board.size(); ++i)
+			cout << board[i] << "\n";
 	}
 	return 0;
 }
