@@ -10,7 +10,11 @@
 * 2. 전역 변수에 인접 리스트를 표현하는 vector<Edge> 배열을 선언한 뒤 main에서 emplace_back으로 간선 정보를 넣어줬는데,
 *    이렇게 벡터에 넣은 원소도 현재 스택 스코프에서만 유효한 것인지 스코프를 벗어나자 reverse 필드 값이 초기화됐다.
 *    인접 리스트를 vector<Edge*>의 배열로 바꾼 후 간선 정보를 new Edge()로 힙에 넣어주니 정상적으로 값이 저장됐다.
+* 
+* 중복되는 간선을 처리하는 더 간단한 방법이 있었다. 중복되는 이전 간선 용량에 더해주기만 하면 된다. (현재 커밋)
+* 이를 이용해 인접 행렬로 다시 풀어 보았다.
 */
+
 #include <iostream>
 #include <algorithm>
 #include <vector>
@@ -18,66 +22,62 @@
 
 using namespace std;
 
-struct Edge
-{
-	int start, dest, capacity, flow;
-	Edge* reverse;
-
-	Edge(int start, int dest, int capacity) : start(start), dest(dest), capacity(capacity), flow(0), reverse(nullptr) {}
-
-	inline int GetResidual() { return capacity - flow; }
-	void Push(int amount)
-	{
-		flow += amount;
-		reverse->flow -= amount;
-	}
-};
-
 const int MAX_IDX = 'z', INF = 987654321;
 const int SOURCE = 'A', SINK = 'Z';
 int N;
-vector<Edge*> adjacent[MAX_IDX + 1];
+vector<vector<int>> capacity, flow;
 
 int GetMaxFlow(int source)
 {
 	int ret = 0;
 	while (true)
 	{
-		vector<Edge*> fromParent(MAX_IDX + 1, nullptr);
+		vector<int> parent(MAX_IDX + 1, -1);
 		queue<int> q;
+		parent[SOURCE] = SOURCE;
 		q.push(source);
 
-		while (!q.empty() && fromParent[SINK] == nullptr)
+		while (!q.empty() && parent[SINK] == -1)
 		{
 			int here = q.front(); q.pop();
 
-			for (Edge* edge : adjacent[here])
+			for (int there = 'A'; there <= 'Z'; ++there)
 			{
-				int there = edge->dest;
-				int residual = edge->GetResidual();
-
-				if (there != SOURCE && fromParent[there] == nullptr && residual > 0)
+				int residual = capacity[here][there] - flow[here][there];
+				if (parent[there] == -1 && residual > 0)
 				{
 					q.push(there);
-					fromParent[there] = edge;
+					parent[there] = here;
+				}
+			}
+
+			for (int there = 'a'; there <= 'z'; ++there)
+			{
+				int residual = capacity[here][there] - flow[here][there];
+				if (parent[there] == -1 && residual > 0)
+				{
+					q.push(there);
+					parent[there] = here;
 				}
 			}
 		}
 
-		if (fromParent[SINK] == nullptr) break;
+		if (parent[SINK] == -1) break;
 
 		int here = SINK, minResidual = INF;
 		while (here != SOURCE)
 		{
-			minResidual = min(minResidual, fromParent[here]->GetResidual());
-			here = fromParent[here]->start;
+			int residual = capacity[parent[here]][here] - flow[parent[here]][here];
+			minResidual = min(minResidual, residual);
+			here = parent[here];
 		}
 
 		here = SINK;
 		while (here != SOURCE)
 		{
-			fromParent[here]->Push(minResidual);
-			here = fromParent[here]->start;
+			flow[parent[here]][here] += minResidual;
+			flow[here][parent[here]] -= minResidual;
+			here = parent[here];
 		}
 		ret += minResidual;
 	}
@@ -90,30 +90,19 @@ int main()
 	cin.tie(0);
 
 	cin >> N;
-	for (int i = 0; i <= MAX_IDX; ++i)
-		adjacent[i].clear();
-
+	capacity = flow = vector<vector<int>>(MAX_IDX + 1, vector<int>(MAX_IDX + 1, 0));
 	for (int i = 0; i < N; ++i)
 	{
 		int c;
-		char u, v;
-		cin >> u >> v >> c;
+		char start, end;
+		cin >> start >> end >> c;
 
-		if (u == v) continue;
+		if (start == end) continue;
 
-		Edge* uv = new Edge(u, v, c);
-		Edge* vu = new Edge(v, u, c);
-		uv->reverse = vu;
-		vu->reverse = uv;
-
-		adjacent[u].push_back(uv);
-		adjacent[v].push_back(vu);
+		capacity[start][end] += c;
+		capacity[end][start] += c;
 	}
 
 	cout << GetMaxFlow(SOURCE) << "\n";
-	for (int i = 0; i <= MAX_IDX; ++i)
-		for (Edge* edge : adjacent[i])
-			delete edge;
-
 	return 0;
 }
