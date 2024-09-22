@@ -1,6 +1,8 @@
 /*
 * Problem: https://www.acmicpc.net/problem/11505
 * 분류: 구간 트리
+* 
+* 구간 곱 트리와 Update 메소드를 구현해 해결함.
 */
 #include <iostream>
 #include <vector>
@@ -16,7 +18,7 @@ struct RMQ
 	int n;
 	vector<long long> tree, & array;
 
-	RMQ(vector<long long>& array) : array(array), n(array.size()), tree(n, -1)
+	RMQ(vector<long long>& array) : array(array), n(array.size()), tree(4 * n, -1)
 	{
 		Init(0, n - 1, 1);
 	}
@@ -27,7 +29,8 @@ struct RMQ
 		if (nodeLeft == nodeRight) return ret = array[nodeLeft];
 
 		int nodeMid = (nodeLeft + nodeRight) / 2;
-		return ret = Init(nodeLeft, nodeMid, node * 2) * Init(nodeMid + 1, nodeRight, node * 2 + 1) % DIVIDER;
+		return ret = Init(nodeLeft, nodeMid, node * 2) *
+			Init(nodeMid + 1, nodeRight, node * 2 + 1) % DIVIDER;
 	}
 
 	long long Query(int left, int right)
@@ -42,7 +45,8 @@ struct RMQ
 		if (left <= nodeLeft && nodeRight <= right) return tree[node];
 
 		int nodeMid = (nodeLeft + nodeRight) / 2;
-		return Query(left, right, nodeLeft, nodeMid, node * 2) * Query(left, right, nodeMid + 1, nodeRight, node * 2 + 1) % DIVIDER;
+		return Query(left, right, nodeLeft, nodeMid, node * 2) *
+			Query(left, right, nodeMid + 1, nodeRight, node * 2 + 1) % DIVIDER;
 	}
 
 	void Update(int target, int value)
@@ -54,10 +58,12 @@ struct RMQ
 	long long Update(int target, int nodeLeft, int nodeRight, int node)
 	{
 		long long& ret = tree[node];
-		if (nodeLeft == nodeRight) return ret = array[target];
+		if (nodeRight < target || target < nodeLeft) return ret;
+		if (nodeLeft == nodeRight) return ret = array[nodeLeft];
 
 		int nodeMid = (nodeLeft + nodeRight) / 2;
-		Update(target, nodeLeft, nodeMid, node * 2)* Update(target, nodeMid, nodeRight, node * 2 + 1);
+		return ret = Update(target, nodeLeft, nodeMid, node * 2) *
+			Update(target, nodeMid + 1, nodeRight, node * 2 + 1) % DIVIDER;
 	}
 };
 
@@ -70,21 +76,16 @@ int main()
 	numbers.resize(N);
 	for (int i = 0; i < N; ++i)
 		cin >> numbers[i];
+
+	RMQ tree(numbers);
 	for (int i = 0; i < M + K; ++i)
 	{
 		int a, b, c;
 		cin >> a >> b >> c;
 		if (a == 1)
-		{
-
-		}
+			tree.Update(b - 1, c);
 		else
-		{
-
-		}
+			cout << tree.Query(b - 1, c - 1) << "\n";
 	}
-
-
-	cout << IsPossible() << "\n";
 	return 0;
 }
