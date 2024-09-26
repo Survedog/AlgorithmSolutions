@@ -1,6 +1,12 @@
 /*
 * Problem: https://acmicpc.net/problem/2533
 * 분류: 트리
+* 
+* Algospot/Gallery와 거의 비슷한 방식으로 풀었다.
+* 트리를 DFS해서 맨 아래로 내려간 뒤 올라오면서 현재 노드가 얼리 어답터인지 아닌지 정하면 된다.
+* 만약 자식 중 어느 하나라도 얼리어답터가 아닌 노드가 존재한다면 현재 노드는 반드시 얼리 어답터여야 한다.
+* 반면 자식들이 모두 얼리어답터라면 현재 노드는 얼리 어답터가 아니어도 된다.
+* 위 로직을 바탕으로 트리를 한번 순회하면 최소 얼리 어답터 수를 알 수 있게 된다.
 */
 #include <iostream>
 #include <vector>
@@ -14,16 +20,17 @@ vector<int> adjacent[1000001];
 
 bool SetEarlyAdaptor(int node, int parent)
 {
+	bool isEarlyAdaptor = false;
 	for (int child : adjacent[node])
 	{
 		if (child == parent) continue;
-		if (!SetEarlyAdaptor(child, node))
+		if (!SetEarlyAdaptor(child, node) && !isEarlyAdaptor)
 		{
 			cnt++;
-			return true;
+			isEarlyAdaptor = true;
 		}
 	}
-	return false;
+	return isEarlyAdaptor;
 }
 
 int main()
@@ -41,6 +48,6 @@ int main()
 	}
 
 	cnt = 0;
-	SetEarlyAdaptor(0, -1);
+	SetEarlyAdaptor(1, -1);
 	cout << cnt << "\n";
 }
