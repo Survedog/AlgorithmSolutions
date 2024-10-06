@@ -1,90 +1,144 @@
 ﻿/*
 * Problem: https://www.acmicpc.net/problem/1006
-* 분류: 이분 매칭?
+* 분류: 동적계획법
 * 
 * 시도1) 함께 감시할 수 있는 구역들이 간선으로 연결된 그래프를 만든 뒤 이분 매칭을 사용해 최대한 많은 인접 구역 쌍을 구해 풀려 했으나,
 * N이 홀수인 경우 그래프를 이분 그래프로 만들지 못해 실패함.
+* 
+* 시도2) 타일링 문제와 유사하다는 점을 이용해 동적 계획법을 사용함. 풀이 시 참고한 글: https://kibbomi.tistory.com/128
 */
 #include <iostream>
 #include <vector>
+#include <memory.h>
+
+enum State
+{
+	UP = 0,
+	DOWN,
+	BOTH,
+	NONE
+};
 
 using namespace std;
 
-int N, W, aCnt, bCnt;
-vector<int> enemies, aMatch, bMatch, idx2Team;
-vector<bool> adjacent[20001];
+const int INF = 987654321;
+int N, W, memo[10000][4], enemies[10000][2];
 
-inline int SwitchTeam(int team)
+inline int RoundCol(int num)
 {
-	return team == 0 ? 1 : 0;
+	return (num + N) % N;
 }
 
-bool DFS(vector<bool>& visited, int a)
+int MinBlocksCovering(int col, State state)
 {
-	if (visited[a]) return false;
-	visited[a] = true;
+	int& ret = memo[col][state];
+	if (ret != -1) return ret;
 
-	for (int b : adjacent[a])
+	int prevCol = RoundCol(col - 1);
+
+	bool upPaired = enemies[prevCol][UP] + enemies[col][UP] <= W;
+	bool downPaired = enemies[prevCol][DOWN] + enemies[col][DOWN] <= W;
+
+	if (state == BOTH)
 	{
-		if (bMatch[b] == -1 || DFS(visited, bMatch[b]))
-		{
-			aMatch[a] = b;
-			bMatch[b] = a;
-		}
+		ret = MinBlocksCovering(prevCol, BOTH) + (enemies[col][UP] + enemies[col][DOWN] <= W ? 1 : 2);
+		ret = min(ret, MinBlocksCovering(prevCol, UP) + (downPaired ? 2 : 3));
+		ret = min(ret, MinBlocksCovering(prevCol, DOWN) + (upPaired ? 2 : 3));
+		ret = min(ret, MinBlocksCovering(prevCol, NONE) + (upPaired && downPaired ? 2 : (upPaired || downPaired ? 3 : 4)));
 	}
+	else if (state == UP)
+	{
+		ret = MinBlocksCovering(prevCol, BOTH) + 1;
+		ret = min(ret, MinBlocksCovering(prevCol, UP) + 2);
+		ret = min(ret, MinBlocksCovering(prevCol, DOWN) + (upPaired ? 1 : 2));
+		ret = min(ret, MinBlocksCovering(prevCol, NONE) + (upPaired ? 2 : 3));
+	}
+	else if (state == DOWN)
+	{
+		ret = MinBlocksCovering(prevCol, BOTH) + 1;
+		ret = min(ret, MinBlocksCovering(prevCol, DOWN) + 2);
+		ret = min(ret, MinBlocksCovering(prevCol, UP) + (downPaired ? 1 : 2));
+		ret = min(ret, MinBlocksCovering(prevCol, NONE) + (downPaired ? 2 : 3));
+	}
+	else // state == NONE
+	{
+		ret = MinBlocksCovering(prevCol, BOTH);
+	}
+	return ret;
 }
 
-int BipartiteMatch()
+int GetAnswer()
 {
-	aMatch = bMatch = vector<int>(2 * N + 1, -1);
+	if (N == 1)
+		return enemies[0][UP] + enemies[0][DOWN] <= W ? 1 : 2;
 
-	for (int a = 0; a < N)
+	int answer = INF;
+	bool upPaired = enemies[0][UP] + enemies[N - 1][UP] <= W;
+	bool downPaired = enemies[0][DOWN] + enemies[N - 1][DOWN] <= W;
+
+	// None
 	{
-		vector<bool visited()
-	}
-}
-
-void MakeGraph()
-{
-	for (int i = 1; i <= 2 * N; ++i)
-		adjacent[i].clear();
-	idx2Team.clear();
-	idx2Team.resize(2 * N + 1, -1);
-
-	idx2Team[1] = 0;
-	aCnt = bCnt = 0;
-	for (int i = 1; i <= N; ++i)
-	{
-		int outer = i + N;
-		int prev = (i + N - 2) % N + 1;
-		int next = i % N + 1;
-
-		idx2Team[next] = idx2Team[prev] = idx2Team[outer] = SwitchTeam(idx2Team[i]);
-
-		if (enemies[i] + enemies[outer] <= W)
-		{
-			adjacent[i].push_back(outer);
-			adjacent[outer].push_back(i);
-		}
-
-		if (enemies[i] + enemies[prev] <= W)
-			adjacent[i].push_back(prev);
-
-		if (enemies[i] + enemies[next] <= W)
-			adjacent[i].push_back(next);
+		memset(memo, -1, sizeof(memo));
+		memo[0][UP] = 1;
+		memo[0][DOWN] = 1;
+		memo[0][BOTH] = enemies[0][UP] + enemies[0][DOWN] <= W ? 1 : 2;
+		memo[0][NONE] = 0;
+		answer = MinBlocksCovering(N - 1, BOTH);
 	}
 
-	for (int i = N + 1; i <= 2 * N; ++i)
+	// Up Placed
 	{
-		int prev = (i - 2) % N + N + 1;
-		int next = i % N + N + 1;
+		memset(memo, -1, sizeof(memo));
+		memo[0][UP] = upPaired ? 1 : 2;
+		memo[0][DOWN] = INF;
+		memo[0][BOTH] = upPaired ? 2 : 3;
+		memo[0][NONE] = INF;
 
-		if (enemies[i] + enemies[prev] <= W)
-			adjacent[i].push_back(prev);
+		int curUpEnemies = enemies[0][UP], prevUpEnemies = enemies[N - 1][UP];
+		enemies[0][UP] = INF;
+		enemies[N - 1][UP] = INF;
 
-		if (enemies[i] + enemies[next] <= W)
-			adjacent[i].push_back(next);
+		answer = min(answer, MinBlocksCovering(N - 1, BOTH) - 1);
+
+		enemies[0][UP] = curUpEnemies;
+		enemies[N - 1][UP] = prevUpEnemies;
 	}
+
+	// Down Placed
+	{
+		memset(memo, -1, sizeof(memo));
+		memo[0][UP] = INF;
+		memo[0][DOWN] = downPaired ? 1 : 2;
+		memo[0][BOTH] = downPaired ? 2 : 3;
+		memo[0][NONE] = INF;
+
+		int curDownEnemies = enemies[0][DOWN], prevDownEnemies = enemies[N - 1][DOWN];
+		enemies[0][DOWN] = INF;
+		enemies[N - 1][DOWN] = INF;
+
+		answer = min(answer, MinBlocksCovering(N - 1, BOTH) - 1);
+
+		enemies[0][DOWN] = curDownEnemies;
+		enemies[N - 1][DOWN] = prevDownEnemies;
+	}
+
+	// Both Placed
+	{
+		memset(memo, -1, sizeof(memo));
+		memo[0][UP] = INF;
+		memo[0][DOWN] = INF;
+		memo[0][BOTH] = upPaired && downPaired ? 2 : (upPaired || downPaired ? 3 : 4);
+		memo[0][NONE] = INF;
+
+		enemies[0][UP] = INF;
+		enemies[0][DOWN] = INF;
+		enemies[N - 1][UP] = INF;
+		enemies[N - 1][DOWN] = INF;
+
+		answer = min(answer, MinBlocksCovering(N - 1, BOTH) - (enemies[N - 1][UP] + enemies[N - 1][DOWN] <= W ? 1 : 2));
+	}
+
+	return answer;
 }
 
 int main()
@@ -97,15 +151,12 @@ int main()
 	while (T--)
 	{
 		cin >> N >> W;
-		enemies.clear();
-		enemies.resize(2 * N + 1, 0);
-		for (int i = 1; i <= 2 * N; ++i)
-		{
-			cin >> enemies[i];
-		}
+		for (int i = 0; i < N; ++i)
+			cin >> enemies[i][DOWN];
+		for (int i = 0; i < N; ++i)
+			cin >> enemies[i][UP];
 
-		MakeGraph();
-		cout << 2 * N - BipartiteMatch() << "\n";
+		cout << GetAnswer() << "\n";
 	}
 
 	return 0;
